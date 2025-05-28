@@ -1,49 +1,84 @@
+"""
+plot_csvs.py
+
+This script reads CSV files containing DNA fragment analysis data and generates corresponding plots saved as PNG images.
+
+Dependencies:
+- pandas
+- matplotlib
+
+Usage:
+    python plot_csvs.py
+"""
+
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Function to plot data from a CSV file
 def plot_data_from_csv(csv_file_path):
-    # Read the CSV file
-    data = pd.read_csv(csv_file_path)
+    """
+    Reads a CSV file and plots the data columns, saving the plot as a PNG file.
 
-    # Display the first few rows of the data
+    Parameters:
+        csv_file_path (str): Path to the CSV file to be processed.
+
+    Returns:
+        None
+    """
+    try:
+        data = pd.read_csv(csv_file_path)
+    except Exception as e:
+        print(f"Error reading {csv_file_path}: {e}")
+        return
+
+    expected_columns = ['Position', 'Footprinted Sample', 'ddA Ladder', 'ddC Ladder', 'Space Measure']
+    if not all(col in data.columns for col in expected_columns):
+        print(f"File {csv_file_path} is missing expected columns. Skipping.")
+        return
+
     print(f"Processing {csv_file_path}...")
     print(data.head())
 
-    # Plot the data
     plt.figure(figsize=(10, 6))
-
-    # Assuming the columns are 'Footprinted Sample', 'ddA Ladder', 'ddC Ladder', and 'Space Measure'
     plt.plot(data['Position'], data['Footprinted Sample'], label='Footprinted Sample', color='blue')
     plt.plot(data['Position'], data['ddA Ladder'], label='ddA Ladder', color='orange')
     plt.plot(data['Position'], data['ddC Ladder'], label='ddC Ladder', color='green')
     plt.plot(data['Position'], data['Space Measure'], label='Space Measure', color='red')
 
-    # Adding labels and title
     plt.xlabel('Position')
     plt.ylabel('Value')
     plt.title('Data from FSA File')
     plt.legend()
     plt.grid()
 
-    # Save the plot as a PNG file
     png_file_path = csv_file_path.replace('.csv', '.png')
-    plt.savefig(png_file_path)
-    plt.close()  # Close the figure to free up memory
+    try:
+        plt.savefig(png_file_path)
+        print(f"Plot saved as {png_file_path}")
+    except Exception as e:
+        print(f"Error saving plot {png_file_path}: {e}")
+    finally:
+        plt.close()
 
-    # Alternatively save the plot as an EPS file
-    #eps_file_path = csv_file_path.replace('.csv', '.eps')
-    #plt.savefig(eps_file_path, format='eps')
-    #plt.close()  # Close the figure to free up memory
+    # To save as EPS instead of PNG, uncomment below lines:
+    # eps_file_path = csv_file_path.replace('.csv', '.eps')
+    # try:
+    #     plt.savefig(eps_file_path, format='eps')
+    #     print(f"Plot saved as {eps_file_path}")
+    # except Exception as e:
+    #     print(f"Error saving plot {eps_file_path}: {e}")
+    # finally:
+    #     plt.close()
 
-# Directory containing CSV files
-directory = os.getcwd()  # Current working directory or specify another path
+def main():
+    directory = os.getcwd()
+    for filename in os.listdir(directory):
+        if filename.endswith('.csv'):
+            csv_path = os.path.join(directory, filename)
+            plot_data_from_csv(csv_path)
+    print("Plots saved as PNG files.")
 
-# Iterate over each file in the directory
-for filename in os.listdir(directory):
-    if filename.endswith('.csv'):
-        csv_path = os.path.join(directory, filename)
-        plot_data_from_csv(csv_path)
+if __name__ == "__main__":
+    main()
 
-print("Plots saved as PNG files.")
+
