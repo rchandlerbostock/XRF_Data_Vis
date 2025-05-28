@@ -1,7 +1,22 @@
+"""
+convert_fsa_to_csv.py
+
+Reads ABI .fsa files (used in DNA fragment analysis) and converts signal data to CSV files.
+
+Adapted from code originally developed by Dr Nikesh Patel.
+
+Dependencies:
+- numpy
+
+Usage:
+    python convert_fsa_to_csv.py
+"""
+
 import os
 import struct
 import datetime
 import numpy as np
+
 
 ABIF_TYPES = {
     1: 'byte', 2: 'char', 3: 'word', 4: 'short', 5: 'long',
@@ -9,7 +24,11 @@ ABIF_TYPES = {
     13: 'bool', 18: 'pString', 19: 'cString'
 }
 
+
 class ABIFReader:
+    """
+    A class to read ABI .fsa files.
+    """
     def __init__(self, fn):
         self.filename = fn
         self.file = open(fn, 'rb')
@@ -23,6 +42,9 @@ class ABIFReader:
         self.entries = [DirEntry(self) for _ in range(dir_entry.numelements)]
 
     def getData(self, name, num=1):
+        """
+        Get data array for entry 'name' and instance 'num'.
+        """
         entry = self.getEntry(name, num)
         if not entry:
             raise ValueError(f"Error: Entry '{name} ({num})' not found in '{self.filename}'")
@@ -30,17 +52,19 @@ class ABIFReader:
         data = self.readData(entry.elementtype, entry.numelements)
         return data[0] if len(data) == 1 else data
 
-    def showEntries(self):
-        for entry in self.entries:
-            print(entry)
-
     def getEntry(self, name, num):
+        """
+        Find the directory entry by name and number.
+        """
         for entry in self.entries:
             if entry.name == name and entry.number == num:
                 return entry
         return None
 
     def readData(self, type, num):
+        """
+        Read data of a given type and number of elements.
+        """
         if type == 1:
             return [self.readNextByte() for _ in range(num)]
         elif type == 2:
@@ -143,7 +167,11 @@ class ABIFReader:
     def tell(self):
         return self.file.tell()
 
+
 class DirEntry:
+    """
+    Represents a directory entry in an ABI file.
+    """
     def __init__(self, reader):
         self.name = reader.readNextString(4)
         self.number = reader.readNextInt()
@@ -164,9 +192,15 @@ class DirEntry:
     def mytype(self):
         return ABIF_TYPES.get(self.elementtype, 'unknown') if self.elementtype < 1024 else 'user'
 
+
 def write_out_raw_csv(data, data_file, directory):
     """
-    Writes out the CSV data from the raw FSA file.
+    Write CSV data extracted from raw FSA file.
+
+    Args:
+        data (np.ndarray): Signal intensity data array with shape (length, 4)
+        data_file (str): The original .fsa filename
+        directory (str): Directory to save the CSV output
     """
     output_file = os.path.join(directory, f"{os.path.basename(data_file).replace('.fsa', '_raw.csv')}")
     with open(output_file, 'w') as f:
@@ -174,33 +208,65 @@ def write_out_raw_csv(data, data_file, directory):
         for position in range(len(data)):
             f.write(f"{position + 1},{data[position][0]},{data[position][1]},{data[position][2]},{data[position][3]}\n")
 
+
 def readABI(fname):
+    """
+    Reads an ABI .fsa file and extracts relevant signal data columns.
+
+    Args:
+        fname (str): Path to the .fsa file.
+
+    Returns:
+        np.ndarray: A numpy array of signal intensities with shape (length, 4).
+    """
     reader = ABIFReader(fname)
     col0 = reader.getData('DATA', 1)
     col1 = reader.getData('DATA', 2)
     col2 = reader.getData('DATA', 3)
     col3 = reader.getData('DATA', 4)
-    
+
     data = np.zeros([len(col0), 4], dtype='f4')
     data[:, 0] = np.array(col0)
     data[:, 1] = np.array(col1)
     data[:, 2] = np.array(col2)
     data[:, 3] = np.array(col3)
+    reader.close()
     return data
 
-if __name__ == '__main__':
-    directory = os.getcwd()  # Use current working directory
+
+def process_fsa_files(directory):
+    """
+    Process all .fsa files in a directory, converting them to CSV files.
+
+    Args:
+        directory (str): Directory containing .fsa files.
+    """
     print(f"Looking for .fsa files in: {directory}")
-    found_files = False  # Track if any .fsa files are found
-    
+    found_files = False
+
     for fsa_file in os.listdir(directory):
         if fsa_file.endswith('.fsa'):
-            found_files = True  # Set to True if at least one file is found
+            found_files = True
             full_path = os.path.join(directory, fsa_file)
             print(f"Processing file: {full_path}")
-            reference_data = readABI(full_path)
-            write_out_raw_csv(reference_data, full_path, directory)
-            print(f"Converted {fsa_file} to {fsa_file.replace('.fsa', '_raw.csv')}")
-    
+            try:
+                reference_data = readABI(full_path)
+                write_out_raw_csv(reference_data, full_path, directory)
+                print(f"Converted {fsa_file} to {fsa_file.replace('.fsa', '_raw.csv')}")
+            except Exception as e:
+                print(f"Error processing {fsa_file}: {e}")
+
     if not found_files:
         print("No .fsa files found in the directory.")
+
+
+def main():
+    """
+    Main entry point of the script.
+    """
+    directory = os.getcwd()  # Use current working directory
+    process_fsa_files(directory)
+
+
+if __name__ == '__main__':
+    main()
